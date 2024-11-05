@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to PDF Converter</title>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            text-align: center;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: block;
+            margin: 10px auto;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #eaeaea;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Image to PDF Converter</h2>
+        <input type="file" id="imageInput" accept="image/*" multiple>
+        <button onclick="generatePDF()">Convert to PDF</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script>
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            const files = document.getElementById('imageInput').files;
+
+            if (files.length === 0) {
+                alert("Please select at least one image.");
+                return;
+            }
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const img = await loadImage(file);
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+
+                // Calculate the image aspect ratio
+                const imgAspectRatio = img.width / img.height;
+
+                // Fit image within page dimensions without stretching
+                let imgWidth = img.width;
+                let imgHeight = img.height;
+
+                if (imgWidth > pdfWidth || imgHeight > pdfHeight) {
+                    if (imgAspectRatio > 1) {
+                        imgWidth = pdfWidth * 0.8; // Set width to 80% of page width
+                        imgHeight = imgWidth / imgAspectRatio;
+                    } else {
+                        imgHeight = pdfHeight * 0.8; // Set height to 80% of page height
+                        imgWidth = imgHeight * imgAspectRatio;
+                    }
+                }
+
+                const xOffset = (pdfWidth - imgWidth) / 2;
+                const yOffset = (pdfHeight - imgHeight) / 2;
+
+                if (i > 0) pdf.addPage();
+                pdf.addImage(img, 'JPEG', xOffset, yOffset, imgWidth, imgHeight);
+            }
+
+            pdf.save("images.pdf");
+        }
+
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => resolve(img);
+                };
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+</html>
