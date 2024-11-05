@@ -21,7 +21,7 @@
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            width: 300px;
+            width: 400px;
         }
 
         h2 {
@@ -38,7 +38,49 @@
             border: 1px solid #ccc;
         }
 
-        button {
+        .image-preview-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .image-preview {
+            position: relative;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f9f9f9;
+        }
+
+        .image-preview img {
+            max-width: 100px;
+            max-height: 100px;
+            border-radius: 4px;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: red;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button.convert-btn {
             margin-top: 20px;
             padding: 10px 20px;
             font-size: 16px;
@@ -50,7 +92,7 @@
             transition: background 0.3s;
         }
 
-        button:hover {
+        button.convert-btn:hover {
             background-color: #0056b3;
         }
     </style>
@@ -59,41 +101,98 @@
     <div class="container">
         <h2>Image to PDF Converter</h2>
         <input type="file" id="imageInput" accept="image/*" multiple>
-        <button onclick="generatePDF()">Convert to PDF</button>
+        <div id="imagePreviewContainer" class="image-preview-container"></div>
+        <button class="convert-btn" onclick="generatePDF()">Convert to PDF</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
     <script>
+        let images = [];
+
+        document.getElementById('imageInput').addEventListener('change', handleFileSelect);
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            for (const file of files) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imgSrc = e.target.result;
+                    images.push({ src: imgSrc, file });
+                    displayImages();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function displayImages() {
+            const container = document.getElementById('imagePreviewContainer');
+            container.innerHTML = ''; // Clear previous previews
+
+            images.forEach((image, index) => {
+                const imageWrapper = document.createElement('div');
+                imageWrapper.classList.add('image-preview');
+                imageWrapper.draggable = true;
+                imageWrapper.addEventListener('dragstart', (e) => handleDragStart(e, index));
+                imageWrapper.addEventListener('dragover', (e) => e.preventDefault());
+                imageWrapper.addEventListener('drop', (e) => handleDrop(e, index));
+
+                const img = document.createElement('img');
+                img.src = image.src;
+                imageWrapper.appendChild(img);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.classList.add('remove-btn');
+                removeBtn.innerText = 'X';
+                removeBtn.onclick = () => removeImage(index);
+                imageWrapper.appendChild(removeBtn);
+
+                container.appendChild(imageWrapper);
+            });
+        }
+
+        function removeImage(index) {
+            images.splice(index, 1);
+            displayImages();
+        }
+
+        function handleDragStart(event, index) {
+            event.dataTransfer.setData('text/plain', index);
+        }
+
+        function handleDrop(event, dropIndex) {
+            const dragIndex = event.dataTransfer.getData('text');
+            if (dragIndex !== dropIndex) {
+                const draggedImage = images.splice(dragIndex, 1)[0];
+                images.splice(dropIndex, 0, draggedImage);
+                displayImages();
+            }
+        }
+
         async function generatePDF() {
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF();
-            const files = document.getElementById('imageInput').files;
 
-            if (files.length === 0) {
+            if (images.length === 0) {
                 alert("Please select at least one image.");
                 return;
             }
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const img = await loadImage(file);
+            for (let i = 0; i < images.length; i++) {
+                const img = await loadImage(images[i].file);
 
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
-
-                // Calculate the image aspect ratio
                 const imgAspectRatio = img.width / img.height;
 
-                // Fit image within page dimensions without stretching
                 let imgWidth = img.width;
                 let imgHeight = img.height;
 
                 if (imgWidth > pdfWidth || imgHeight > pdfHeight) {
                     if (imgAspectRatio > 1) {
-                        imgWidth = pdfWidth * 0.8; // Set width to 80% of page width
+                        imgWidth = pdfWidth * 0.8;
                         imgHeight = imgWidth / imgAspectRatio;
                     } else {
-                        imgHeight = pdfHeight * 0.8; // Set height to 80% of page height
+                        imgHeight = pdfHeight * 0.8;
                         imgWidth = imgHeight * imgAspectRatio;
                     }
                 }
